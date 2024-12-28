@@ -34,10 +34,14 @@ class TaskManager:
     @staticmethod
     def add_task(task_name, descript):
         tasks = read_data()
-        if tasks:
-            next_id = max(task['_id'] for task in tasks) + 1
-        else:
-            next_id = 1
+
+        # Check for duplicate task names
+        if any(task['task'] == task_name for task in tasks):
+            print("A task with this name already exists!")
+            return
+
+        next_id = max(task['_id'] for task in tasks) + 1 if tasks else 1
+
         task_doc = {
             '_id': next_id,
             "task": task_name,
@@ -47,47 +51,66 @@ class TaskManager:
             "updated_at": None
         }
 
-        tasks = read_data()
-
         tasks.append(task_doc)
-
         write_data(tasks)
-        print(f"task with id: {next_id} has been added!")
+        print(f"Task with ID: {next_id} has been added!")
 
     # update task base on id
     @staticmethod
     def update_task(tsk_id, new_task_name):
         tsk_id = int(tsk_id)
         tasks = read_data()
+        task_found = False
+
         for task in tasks:
             if task['_id'] == tsk_id:
                 task['task'] = new_task_name
                 task['updated_at'] = datetime.now().isoformat()
+                task_found = True
+                break
 
-        write_data(tasks)
-        print(f"task with id {tsk_id} has been updated!")
+        if task_found:
+            write_data(tasks)
+            print(f"Task with ID {tsk_id} has been updated!")
+        else:
+            print(f"No task found with ID {tsk_id}.")
 
     #  delete task based on id
     @staticmethod
     def delete_task(_id):
+        confirm = input(f"Are you sure you want to delete task with ID {_id}? (Y/N): ").strip().lower()
+        if confirm != 'y':
+            print("Deletion canceled.")
+            return
+
         _id = int(_id)
         tasks = read_data()
-        tasks = list(filter(lambda x: x['_id'] != _id, tasks))
-        write_data(tasks)
-        print(f"task with id: {_id} has been deleted!")
+        initial_length = len(tasks)
+        tasks = [task for task in tasks if task['_id'] != _id]
+
+        if len(tasks) < initial_length:
+            write_data(tasks)
+            print(f"Task with ID {_id} has been deleted!")
+        else:
+            print(f"No task found with ID {_id}.")
 
     # mark task as done or in-progress
     @staticmethod
     def mark_task(_id, _type):
         _id = int(_id)
+        task_found = False
         tasks = read_data()
+
         for task in tasks:
             if task['_id'] == _id:
                 task['status'] = _type
+                task_found = True
 
-        write_data(tasks)
-
-        print(f'task with id: {_id} has been marked as {_type}')
+        if task_found:
+            write_data(tasks)
+            print(f'task with id: {_id} has been marked as {_type}')
+        else:
+            print(f"No task with id: {_id} found")
 
     @staticmethod
     def list_task(_type):
@@ -113,7 +136,7 @@ def running():
         print("List of available commands")
         for command in list_commands:
             print(command)
-        print('\n')
+        # print('\n')
         choice = input("Enter command: ")
 
         if choice.startswith("task-cli"):
@@ -131,9 +154,14 @@ def running():
                     TaskManager.list_task(_type)
 
             elif command.startswith('update'):
-                _id = command[7:9]
-                new_task_name = command[9:]
-                TaskManager.update_task(_id, new_task_name)
+                try:
+                    parts = command.split()
+                    _id = parts[1]
+                    new_task_name = " ".join(parts[2:])
+
+                    TaskManager.update_task(_id, new_task_name)
+                except (IndexError, ValueError):
+                    print("Invalid syntax. Use: task-cli update <id> <new_task_name>")
 
             elif command.startswith("delete"):
                 _id = command[7:9]
